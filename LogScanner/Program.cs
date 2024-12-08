@@ -1,29 +1,18 @@
-﻿namespace LogScanner
+﻿using System.Diagnostics;
+
+namespace LogScanner
 {
     public class Program
     {
         static void Main(string[] args)
         {
-            LogParsing logParser = new LogParsing();
+            string filesDirectory = "C://Users/ollic/source/repos/LogScanner/LogScanner/bin/Debug/net9.0";
 
-            // Example file names (no extensions)
-            string[] fileNames = new string[] { "Log_1", "Log_2", "log_3", "Log_4", "Log_5" };
+            // Define the file names to search for
+            string[] fileNames = new string[] { "example_logs_1", "example_logs_2", "example_logs_3", "example_logs_4", "example_logs" };
 
-            string filesDirectory = Path.Combine(Directory.GetCurrentDirectory(), "bin", "Debug", "net9.0");
-            Console.WriteLine("Files Directory: " + filesDirectory);
-
-            // Use the FindFilesAndIdentifyType method to find and identify the files
-            foreach (var fileTypeResult in logParser.FindFilesAndIdentifyType(filesDirectory, fileNames))
-            {
-                if (fileTypeResult.FilePath != null)
-                {
-                    Console.WriteLine($"Found file: {fileTypeResult.FileName} as a {fileTypeResult.FileType} file.");
-                }
-                else
-                {
-                    Console.WriteLine($"File {fileTypeResult.FileName} not found.");
-                }
-            }
+            // Call the method to search and process files
+             LogParsing.SearchAndProcessFiles(filesDirectory, fileNames);
         }
     }
 }
