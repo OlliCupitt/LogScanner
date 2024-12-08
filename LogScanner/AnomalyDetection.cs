@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace LogScanner
 {
-    internal class AnomalyDetection
+    public class AnomalyDetection
     {
     }
 }

@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 
 namespace LogScanner
 {
-    internal class DataStorage
+    public class DataStorage
     {
+
+
     }
 }
