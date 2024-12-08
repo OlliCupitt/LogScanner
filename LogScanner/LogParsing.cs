@@ -11,6 +11,13 @@ namespace LogScanner
 {
     public class LogParsing
     {
+        public string LogMessage { get; set; }
+
+        public string level { get; set; }
+        public DateTime Timestamp { get; set; }
+
+        //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
         public static void SearchAndProcessFiles(string directoryPath, string[] fileNames)
         {
             if (!Directory.Exists(directoryPath))
@@ -50,13 +57,14 @@ namespace LogScanner
                 }
             }
         }
-        public static void LoadFromJson(string file)                                          // Loads parking spots from a JSON file
+        public static void LoadFromJson(string file)                                        
         {
-
             string jsonString = File.ReadAllText(file);
-            //var flatList = JsonSerializer.Deserialize<List<LogParsing>>(jsonString);
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(jsonString);
+            var flatList = JsonSerializer.Deserialize<List<LogParsing>>(jsonString);           // Deserialize the JSON into a list of LogParsing objects
+            string jsonOutput = JsonSerializer.Serialize(flatList, new JsonSerializerOptions { WriteIndented = true });       // Serialize the object back to JSON for pretty printing
+
+            Console.ForegroundColor = ConsoleColor.Green;          // Print the serialized JSON to the console
+            Console.WriteLine(jsonOutput);
             Console.ResetColor();
         }
             
