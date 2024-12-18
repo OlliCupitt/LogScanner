@@ -9,6 +9,8 @@ namespace LogScanner
     public class AnomalyDetection
     {
         
+
+
         private FileSystemWatcher _watcher;
 
         private readonly HashSet<string> _processedFiles = new HashSet<string>(); // For debouncing events
@@ -62,6 +64,9 @@ namespace LogScanner
         {
             Console.WriteLine($"[CREATED] File detected: {e.FullPath}");
             HandleAnomaly(e.FullPath, "created");
+
+            LogParsing logParser = new LogParsing();
+            logParser.OverWatch(e.FullPath);
         }
 
         private void OnChanged(object sender, FileSystemEventArgs e)
@@ -70,6 +75,9 @@ namespace LogScanner
             {
                 Console.WriteLine($"[CHANGED] File modified: {e.FullPath}");
                 HandleAnomaly(e.FullPath, "changed");
+                
+                LogParsing logParsing = new LogParsing();
+                logParsing.OverWatch(e.FullPath);
                 // Clear after a delay
                 System.Threading.Tasks.Task.Delay(1000).ContinueWith(_ => _processedFiles.Remove(e.FullPath));
             }
@@ -102,6 +110,8 @@ namespace LogScanner
                 Console.WriteLine($"Old path: {oldFilePath}");
             }
         }
+
+       
     }
 }
 

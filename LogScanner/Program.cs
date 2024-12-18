@@ -15,7 +15,7 @@ namespace LogScanner
 
 
             logparsing.StartUp();
-            
+
 
            
         }

@@ -33,6 +33,18 @@ namespace LogScanner
                 if (!string.IsNullOrEmpty(foundPath))
                 {
                     Console.WriteLine($"Mappen hittades: {foundPath}\n");
+
+                    HorUnge();
+
+                    // Pass the found folder path to the AnomalyDetection class
+                    AnomalyDetection anomalyDetection = new AnomalyDetection(foundPath);
+                    anomalyDetection.Start();  // Start monitoring the folder
+
+
+                    Console.WriteLine("Press 'Enter' to stop monitoring...");
+                    Console.ReadLine(); // Wait for user input to stop the monitoring
+
+                    anomalyDetection.Stop();  // Stop monitoring when the user presses Enter
                 }
                 else
                 {
@@ -44,41 +56,84 @@ namespace LogScanner
                 Console.WriteLine($"Ett fel uppstod: {ex.Message}");
             }
 
-            HorUnge();
+           
         }
 
+       
 
-
-        public void LoadFromJson(string file)
+        public List<LogParsing>LoadFromJson(string file)
         {
-            string jsonString = File.ReadAllText(file);
-            var flatList = JsonSerializer.Deserialize<List<LogParsing>>(jsonString);           // Deserialize the JSON into a list of LogParsing objects
-            string jsonOutput = JsonSerializer.Serialize(flatList, new JsonSerializerOptions { WriteIndented = true });       // Serialize the object back to JSON for pretty printing
+            try
+            {
+                string jsonString = File.ReadAllText(file);
 
-            Console.ForegroundColor = ConsoleColor.Green;          // Print the serialized JSON to the console
-            Console.WriteLine(jsonOutput);
-            Console.ResetColor();
+                var flatList = JsonSerializer.Deserialize<List<LogParsing>>(jsonString);
+                Console.ForegroundColor = ConsoleColor.Green;                               // Deserialize the JSON into a list of LogParsing objects
+                Console.WriteLine(file);                                 
+                Console.ResetColor();
+                return flatList ?? new List<LogParsing>();
+            }    
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to parse .JSON file: {file} ERROR {ex.Message}");
+                return new List<LogParsing>();
+            }
+                                                   // Print the serialized JSON to the console
         }
 
-        public void CsvReading(string file)
+        public List<LogParsing>CsvReading(string file)
         {
-            string csvData = File.ReadAllText(file);
-            //var lines = csvString.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            using (var reader = new StringReader(csvData))
-            using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
-                Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(csvData);
-            Console.ResetColor();
+            try
+            {
+                using (var reader = new StreamReader(file))
+                using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine(file);
+                    Console.ResetColor(); 
+                    return csv.GetRecords<LogParsing>().ToList(); 
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to parse .CSV file: {file} ERROR {ex.Message}");
+                return new List<LogParsing>();
+            }
         }
 
-        public void TxtReading(string file)
+        public List<LogParsing>TxtReading(string file)
         {
-            string txtString = File.ReadAllText(file);
-            //var lines = txtString.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(txtString);
-            Console.ResetColor();
+            try
+            {
+                string[] lines = File.ReadAllLines(file);
+                var result = new List<LogParsing>();
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(file);
+                Console.ResetColor();
+                foreach (var line in lines)
+                {
+                    // Parse each line into a LogParsing object (requires specific format assumptions)
+                    // Example:
+                    // level: WARN, timestamp: 2024-12-18, message: Some warning message
 
+                    if (line.Contains("level"))
+                    {
+                        var parts = line.Split(',');
+                        result.Add(new LogParsing
+                        {
+                            level = parts[0].Split(':')[1].Trim(),
+                            timestamp = DateTime.Parse(parts[1].Split(':')[1].Trim()),
+                            message = parts[2].Split(':')[1].Trim()
+                        });
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to parse .TXT file: {file} ERROR {ex.Message}");
+                return new List<LogParsing>();
+            }
         }
 
         public void HorUnge()
@@ -142,6 +197,37 @@ namespace LogScanner
             }
 
             return null; // Folder not found
+        }
+
+
+        public void OverWatch(string filepath)
+        {
+           List<LogParsing> logs = new List<LogParsing>();
+            string fileExtension = Path.GetExtension(filepath).ToLower();
+
+            switch (fileExtension)
+            {
+                case ".json":
+                    logs = LoadFromJson(filepath); break;
+                case ".csv":
+                    logs = CsvReading(filepath); break;
+                case ".txt":
+                    logs = TxtReading(filepath); break;
+                default:
+                    Console.WriteLine($"Unsupported file type: {filepath}");
+                    return;
+            }
+            foreach (var log in logs)
+            {
+                if (log.level == "WARN" ||  log.level == "ERROR")
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Anomaly Detected! Level: {log.level}, Message: {log.message}, Timestamp: {log.timestamp}");
+                    Console.ResetColor();
+                }
+            }
+
+
         }
     }
 }
