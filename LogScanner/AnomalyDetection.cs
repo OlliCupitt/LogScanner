@@ -8,9 +8,6 @@ namespace LogScanner
 {
     public class AnomalyDetection
     {
-        
-
-
         private FileSystemWatcher _watcher;
 
         private readonly HashSet<string> _processedFiles = new HashSet<string>(); // For debouncing events
@@ -110,10 +107,6 @@ namespace LogScanner
                 Console.WriteLine($"Old path: {oldFilePath}");
             }
         }
-
-      
-
-
     }
 }
 

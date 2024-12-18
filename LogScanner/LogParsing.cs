@@ -18,9 +18,6 @@ namespace LogScanner
         public DateTime timestamp { get; set; }
         public string level { get; set; }
         public string message { get; set; }
-      
-
-
 
         //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -55,11 +52,7 @@ namespace LogScanner
             {
                 Console.WriteLine($"Ett fel uppstod: {ex.Message}");
             }
-
-           
         }
-
-       
 
         public List<LogParsing>LoadFromJson(string file)
         {
@@ -145,7 +138,6 @@ namespace LogScanner
             {
                 string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file);    // Extract the file name without extension
 
-
                 string fileExtension = Path.GetExtension(file).ToLower();     // Determine the file type based on the extension
                 switch (fileExtension)
                 {
@@ -166,7 +158,6 @@ namespace LogScanner
                         Console.WriteLine($"File: {file} - Unknown or unsupported file type");
                         break;
                 }
-
             }
         }
         public static string FindFolder(string startDirectory, string mappNamn)
@@ -238,11 +229,9 @@ namespace LogScanner
                                 Console.ResetColor();
                             }
                         }
-
                         // Update the last processed line
                         _fileLineTracker[filePath] = currentLine;
                     }
-
                     // If we successfully processed the file, exit the retry loop
                     return;
                 }
@@ -287,11 +276,8 @@ namespace LogScanner
             {
                 Console.WriteLine($"Failed to parse line: {line}");
             }
-
             return null;
         }
-
-       
     }
 }
 
