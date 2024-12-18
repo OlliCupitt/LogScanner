@@ -12,10 +12,9 @@ namespace LogScanner
         {
             var logparsing = new LogParsing();
 
-            string mappNamn = "LogData";
-            string startDirectory = "C://Users/";
 
-            logparsing.StartUp(startDirectory, mappNamn);
+
+            logparsing.StartUp();
             
 
            

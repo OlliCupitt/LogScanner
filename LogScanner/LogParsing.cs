@@ -20,24 +20,23 @@ namespace LogScanner
         public string level { get; set; }
         public DateTime timestamp { get; set; }
 
-        
-        
+
+
         //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-       
-       public void StartUp(string startDirectory, string mappNamn)
-       {
+
+        public void StartUp()
+        {
             try
             {
-                string foundPath = LogParsing.FindFolder(startDirectory, mappNamn);
+                string foundPath = FindFolder("C://Users/", "LogData");
 
                 if (!string.IsNullOrEmpty(foundPath))
                 {
                     Console.WriteLine($"Mappen hittades: {foundPath}\n");
-
                 }
                 else
                 {
-                    Console.WriteLine($"Mappen '{mappNamn}' hittades inte.");
+                    Console.WriteLine($"Mappen hittades inte.");
                 }
             }
             catch (Exception ex)
@@ -45,11 +44,11 @@ namespace LogScanner
                 Console.WriteLine($"Ett fel uppstod: {ex.Message}");
             }
 
-            HorUnge(startDirectory, mappNamn);
-            
-       }
+            HorUnge();
+        }
 
-      
+
+
         public void LoadFromJson(string file)
         {
             string jsonString = File.ReadAllText(file);
@@ -82,9 +81,9 @@ namespace LogScanner
 
         }
 
-        public void HorUnge(string startDirectory, string mappNamn)
+        public void HorUnge()
         {
-            string[] files = Directory.GetFiles(FindFolder(startDirectory, mappNamn));  // Get all files in the directory
+            string[] files = Directory.GetFiles(FindFolder("C://Users/", "LogData"));  // Get all files in the directory
 
             foreach (string file in files)
             {
@@ -122,27 +121,27 @@ namespace LogScanner
                 {
                     if (Path.GetFileName(folder).Equals(mappNamn, StringComparison.OrdinalIgnoreCase))
                     {
-                        return folder; // Return the path if the folder is found
+                        return folder; // Found the folder
                     }
 
-                    // Recursively search in subdirectories
+                    // Recursively search in subdirectories by passing the current subfolder
                     string found = FindFolder(folder, mappNamn);
                     if (!string.IsNullOrEmpty(found))
                     {
-                        return found;
+                        return found; // Return if found in subdirectories
                     }
                 }
             }
             catch (UnauthorizedAccessException)
             {
-                // Ignore directories where access is denied
+                // Skip directories where access is denied
             }
             catch (DirectoryNotFoundException)
             {
-                // Ignore directories that no longer exist
+                // Skip directories that no longer exist
             }
 
-            return null; // Return null if the folder is not found
+            return null; // Folder not found
         }
     }
 }

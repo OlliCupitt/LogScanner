@@ -8,12 +8,11 @@ namespace LogScanner
 {
     public class AnomalyDetection
     {
-        string mappNamn = "LogData";
-        string startDirectory = "C://Users/";
+        
         private FileSystemWatcher _watcher;
 
         private readonly HashSet<string> _processedFiles = new HashSet<string>(); // For debouncing events
-        string filePath = LogParsing.FindFolder(startDirectory, mappNamn);
+        string filePath = LogParsing.FindFolder("C://Users/", "LogData");
         public AnomalyDetection(string filepath, string fileFilter = "*.*", bool includeSubdirectories = false)
         {
             if (!Directory.Exists(filePath))
