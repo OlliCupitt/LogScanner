@@ -15,10 +15,10 @@ namespace LogScanner
 {
     public class LogParsing
     {
-        public string message { get; set; }
-
-        public string level { get; set; }
         public DateTime timestamp { get; set; }
+        public string level { get; set; }
+        public string message { get; set; }
+      
 
 
 
@@ -138,7 +138,8 @@ namespace LogScanner
 
         public void HorUnge()
         {
-            string[] files = Directory.GetFiles(FindFolder("C://Users/", "LogData"));  // Get all files in the directory
+                        string[] files = Directory.GetFiles(FindFolder("C://Users/", "LogData"));  // Get all files in the directory
+            //string filepath = FindFolder("C://Users/", "LogData"); Test
 
             foreach (string file in files)
             {
@@ -154,7 +155,8 @@ namespace LogScanner
                         break;
                     case ".json":
                         Console.WriteLine($"File: {file} - Detected as JSON");
-                        LoadFromJson(file);                                     // Call a method to handle JSON files
+                        LoadFromJson(file);               // Call a method to handle JSON files
+                        //OverWatch(filepath); Test!!!!
                         break;
                     case ".txt":
                         Console.WriteLine($"File: {file} - Detected as TXT");
@@ -199,36 +201,97 @@ namespace LogScanner
             return null; // Folder not found
         }
 
-
-        public void OverWatch(string filepath)
+        private readonly Dictionary<string, long> _fileLineTracker = new Dictionary<string, long>();
+        public void OverWatch(string filePath)
         {
-           List<LogParsing> logs = new List<LogParsing>();
-            string fileExtension = Path.GetExtension(filepath).ToLower();
+            const int maxRetries = 5; // Maximum number of retries
+            const int delayBetweenRetries = 500; // Delay in milliseconds between retries
 
-            switch (fileExtension)
+            for (int attempt = 0; attempt < maxRetries; attempt++)
             {
-                case ".json":
-                    logs = LoadFromJson(filepath); break;
-                case ".csv":
-                    logs = CsvReading(filepath); break;
-                case ".txt":
-                    logs = TxtReading(filepath); break;
-                default:
-                    Console.WriteLine($"Unsupported file type: {filepath}");
-                    return;
-            }
-            foreach (var log in logs)
-            {
-                if (log.level == "WARN" ||  log.level == "ERROR")
+                try
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"Anomaly Detected! Level: {log.level}, Message: {log.message}, Timestamp: {log.timestamp}");
-                    Console.ResetColor();
+                    long lastLineProcessed = _fileLineTracker.ContainsKey(filePath) ? _fileLineTracker[filePath] : 0;
+
+                    // Open the file with shared read access
+                    using (var reader = new StreamReader(new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)))
+                    {
+                        var currentLine = 0;
+                        string line;
+                        while ((line = reader.ReadLine()) != null)
+                        {
+                            currentLine++;
+                            if (currentLine <= lastLineProcessed)
+                            {
+                                // Skip lines already processed
+                                continue;
+                            }
+
+                            // Parse the line into a LogParsing object
+                            LogParsing log = ParseLogLine(line);
+
+                            // Check for anomalies
+                            if (log != null && (log.level == "WARN" || log.level == "ERROR"))
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine($"Anomaly Detected! Level: {log.level}, Message: {log.message}, Timestamp: {log.timestamp}");
+                                Console.ResetColor();
+                            }
+                        }
+
+                        // Update the last processed line
+                        _fileLineTracker[filePath] = currentLine;
+                    }
+
+                    // If we successfully processed the file, exit the retry loop
+                    return;
+                }
+                catch (IOException)
+                {
+                    if (attempt < maxRetries - 1)
+                    {
+                        // Wait before retrying
+                        System.Threading.Thread.Sleep(delayBetweenRetries);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to process file: {filePath}. File is locked or inaccessible.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"An unexpected error occurred while processing file: {filePath}. Error: {ex.Message}");
+                    return;
                 }
             }
-
-
         }
+
+        // Helper method to parse a log line
+        private LogParsing ParseLogLine(string line)
+        {
+            // Example parser for a line in the format: "level: WARN, timestamp: 2024-12-18, message: Some warning message"
+            try
+            {
+                if (line.Contains("level"))
+                {
+                    var parts = line.Split(',');
+                    return new LogParsing
+                    {
+                        level = parts[0].Split(':')[1].Trim(),
+                        timestamp = DateTime.Parse(parts[1].Split(':')[1].Trim()),
+                        message = parts[2].Split(':')[1].Trim()
+                    };
+                }
+            }
+            catch
+            {
+                Console.WriteLine($"Failed to parse line: {line}");
+            }
+
+            return null;
+        }
+
+       
     }
 }
 
