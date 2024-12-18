@@ -26,14 +26,13 @@ namespace LogScanner
        
        public void StartUp(string startDirectory, string mappNamn)
        {
-            HorUnge(startDirectory, mappNamn);
             try
             {
                 string foundPath = LogParsing.FindFolder(startDirectory, mappNamn);
 
                 if (!string.IsNullOrEmpty(foundPath))
                 {
-                    Console.WriteLine($"Mappen hittades: {foundPath}");
+                    Console.WriteLine($"Mappen hittades: {foundPath}\n");
 
                 }
                 else
@@ -45,7 +44,10 @@ namespace LogScanner
             {
                 Console.WriteLine($"Ett fel uppstod: {ex.Message}");
             }
-        }
+
+            HorUnge(startDirectory, mappNamn);
+            
+       }
 
       
         public void LoadFromJson(string file)
