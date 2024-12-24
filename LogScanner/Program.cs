@@ -7,21 +7,12 @@ namespace LogScanner
 {
     internal class Program
     {
-       
         static void Main(string[] args)
         {
+            AppDbContext.InitializeDatabase();
             var logparsing = new LogParsing();
-
-
-
             logparsing.StartUp();
-
-
-           
         }
-        
-
-
     }
 }
        

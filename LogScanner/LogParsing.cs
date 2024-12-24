@@ -11,14 +11,14 @@ using System.Security.Cryptography.X509Certificates;
 using System.Runtime.InteropServices;
 using static LogScanner.DataStorage;
 using Microsoft.EntityFrameworkCore;
-
-
+using CsvHelper.Configuration;
+using System.ComponentModel.DataAnnotations;
 
 namespace LogScanner
 {
     public class LogParsing
     {
-        public int Id { get; set; }  // primary key
+        [Key]
         public DateTime timestamp { get; set; }
         public string level { get; set; }
         public string message { get; set; }
@@ -30,7 +30,7 @@ namespace LogScanner
             try
             {
                 // Ensure the database exists
-               AppDbContext.InitializeDatabase();
+                AppDbContext.InitializeDatabase();
 
                 string foundPath = FindFolder("C://Users/", "LogData");
                 if (!string.IsNullOrEmpty(foundPath))
@@ -42,6 +42,7 @@ namespace LogScanner
                     // Pass the found folder path to the AnomalyDetection class
                     AnomalyDetection anomalyDetection = new AnomalyDetection(foundPath);
                     anomalyDetection.Start();
+
 
                     Console.WriteLine("Press 'Enter' to stop monitoring...");
                     Console.ReadLine();
@@ -95,6 +96,11 @@ namespace LogScanner
         {
             try
             {
+                var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    HeaderValidated = null,  // Ignore missing headers
+                    MissingFieldFound = null // Ignore missing fields
+                };
                 using (var reader = new StreamReader(file))
                 using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
                 {
@@ -104,6 +110,11 @@ namespace LogScanner
 
                     // Read the records from the CSV file
                     var records = csv.GetRecords<LogParsing>().ToList();
+
+                    // Display the count of records in the file
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"Successfully loaded {records.Count} entries from CSV file into the database.");
+                    Console.ResetColor();
 
                     // Store to the database
                     using (var context = new AppDbContext())
@@ -151,7 +162,7 @@ namespace LogScanner
                 }
 
                 // Store the logs into the database
-                using (var context = new AppDbContext(new DbContextOptions<AppDbContext>()))
+                using (var context = new AppDbContext())
                 {
                     context.Entries.AddRange(result);
                     context.SaveChanges();
@@ -241,8 +252,7 @@ namespace LogScanner
                 {
                     long lastLineProcessed = _fileLineTracker.ContainsKey(filePath) ? _fileLineTracker[filePath] : 0;
 
-                    // Open the file with shared read access
-                    using (var reader = new StreamReader(new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)))
+                    using (var reader = new StreamReader(new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)))       // Open the file with shared read access
                     {
                         var currentLine = 0;
                         string line;
@@ -251,32 +261,45 @@ namespace LogScanner
                             currentLine++;
                             if (currentLine <= lastLineProcessed)
                             {
-                                // Skip lines already processed
-                                continue;
+                                continue;       // Skip lines already processed
                             }
 
-                            // Parse the line into a LogParsing object
-                            LogParsing log = ParseLogLine(line);
+                            LogParsing log = ParseLogLine(line);        // Parse the line into a LogParsing object
 
-                            // Check for anomalies
-                            if (log != null && (log.level == "WARN" || log.level == "ERROR"))
+                            if (log != null && (log.level == "WARN" || log.level == "ERROR"))       // Check for anomalies
                             {
                                 Console.ForegroundColor = ConsoleColor.Red;
                                 Console.WriteLine($"Anomaly Detected! Level: {log.level}, Message: {log.message}, Timestamp: {log.timestamp}");
                                 Console.ResetColor();
                             }
+
+
+                            using (var context = new AppDbContext())    // Check if the log exists in the database (based on timestamp)
+                            {
+                                var existingLog = context.Entries
+                                    .FirstOrDefault(l => l.timestamp == log.timestamp);
+
+                                if (existingLog != null)   // Update the existing log entry
+                                {
+                                    existingLog.level = log.level;
+                                    existingLog.message = log.message;
+                                }
+                                else     // Add a new log entry
+                                {
+                                    context.Entries.Add(log);
+                                }
+                                context.SaveChanges();    // Save changes to the database
+                            }
                         }
-                        // Update the last processed line
-                        _fileLineTracker[filePath] = currentLine;
+                        _fileLineTracker[filePath] = currentLine;    // Update the last processed line
                     }
-                    // If we successfully processed the file, exit the retry loop
-                    return;
+
+                    return;    // If we successfully processed the file, exit the retry loop
                 }
                 catch (IOException)
                 {
-                    if (attempt < maxRetries - 1)
+                    if (attempt < maxRetries - 1)   // Wait before retrying
                     {
-                        // Wait before retrying
                         System.Threading.Thread.Sleep(delayBetweenRetries);
                     }
                     else
@@ -317,36 +340,6 @@ namespace LogScanner
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

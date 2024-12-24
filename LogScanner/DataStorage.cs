@@ -19,7 +19,7 @@ namespace LogScanner
             // Configure the DbContext with a connection string to the SQL Server database
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
-                optionsBuilder.UseSqlServer(@"Server=.\SQLEXPRESS;Database=EntryDatabase;Trusted_Connection=True;");
+                optionsBuilder.UseSqlServer("Server=localhost;Database=YourDatabaseName;Trusted_Connection=True;");
             }
 
             // Method to initialize the database (ensure it's created if it doesn't exist)
