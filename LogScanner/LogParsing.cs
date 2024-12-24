@@ -9,12 +9,16 @@ using CsvHelper;
 using System.Globalization;
 using System.Security.Cryptography.X509Certificates;
 using System.Runtime.InteropServices;
+using static LogScanner.DataStorage;
+using Microsoft.EntityFrameworkCore;
+
 
 
 namespace LogScanner
 {
     public class LogParsing
     {
+        public int Id { get; set; }  // primary key
         public DateTime timestamp { get; set; }
         public string level { get; set; }
         public string message { get; set; }
@@ -25,23 +29,24 @@ namespace LogScanner
         {
             try
             {
-                string foundPath = FindFolder("C://Users/", "LogData");
+                // Ensure the database exists
+               AppDbContext.InitializeDatabase();
 
+                string foundPath = FindFolder("C://Users/", "LogData");
                 if (!string.IsNullOrEmpty(foundPath))
                 {
                     Console.WriteLine($"Mappen hittades: {foundPath}\n");
 
-                    HorUnge();
+                    FileIdentification();
 
                     // Pass the found folder path to the AnomalyDetection class
                     AnomalyDetection anomalyDetection = new AnomalyDetection(foundPath);
-                    anomalyDetection.Start();  // Start monitoring the folder
-
+                    anomalyDetection.Start();
 
                     Console.WriteLine("Press 'Enter' to stop monitoring...");
-                    Console.ReadLine(); // Wait for user input to stop the monitoring
+                    Console.ReadLine();
 
-                    anomalyDetection.Stop();  // Stop monitoring when the user presses Enter
+                    anomalyDetection.Stop();
                 }
                 else
                 {
@@ -54,27 +59,39 @@ namespace LogScanner
             }
         }
 
-        public List<LogParsing>LoadFromJson(string file)
+        public List<LogParsing> LoadFromJson(string file)
         {
             try
             {
+                // Deserialize JSON data
                 string jsonString = File.ReadAllText(file);
-
                 var flatList = JsonSerializer.Deserialize<List<LogParsing>>(jsonString);
-                Console.ForegroundColor = ConsoleColor.Green;                               // Deserialize the JSON into a list of LogParsing objects
-                Console.WriteLine(file);                                 
+
+                // Ensure data is non-null
+                var logEntries = flatList ?? new List<LogParsing>();
+
+                // Store the data into the database using AppDbContext
+                using (var context = new AppDbContext())
+                {
+                    // Make sure Entries is properly defined as DbSet<LogParsing>
+                    context.Entries.AddRange(logEntries); // Add all the log entries
+                    context.SaveChanges(); // Save the data to the database
+                }
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"Successfully loaded {logEntries.Count} entries from JSON file into the database.");
                 Console.ResetColor();
-                return flatList ?? new List<LogParsing>();
-            }    
+
+                return logEntries; // Return the loaded entries (optional)
+            }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to parse .JSON file: {file} ERROR {ex.Message}");
+                Console.WriteLine($"Failed to parse JSON file: {file}. Error: {ex.Message}");
                 return new List<LogParsing>();
             }
-                                                   // Print the serialized JSON to the console
         }
 
-        public List<LogParsing>CsvReading(string file)
+        public List<LogParsing> CsvReading(string file)
         {
             try
             {
@@ -83,8 +100,19 @@ namespace LogScanner
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine(file);
-                    Console.ResetColor(); 
-                    return csv.GetRecords<LogParsing>().ToList(); 
+                    Console.ResetColor();
+
+                    // Read the records from the CSV file
+                    var records = csv.GetRecords<LogParsing>().ToList();
+
+                    // Store to the database
+                    using (var context = new AppDbContext())
+                    {
+                        context.Entries.AddRange(records);
+                        context.SaveChanges();
+                    }
+
+                    return records;
                 }
             }
             catch (Exception ex)
@@ -94,32 +122,41 @@ namespace LogScanner
             }
         }
 
-        public List<LogParsing>TxtReading(string file)
+        public List<LogParsing> TxtReading(string file)
         {
             try
             {
                 string[] lines = File.ReadAllLines(file);
                 var result = new List<LogParsing>();
+
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine(file);
                 Console.ResetColor();
+
                 foreach (var line in lines)
                 {
-                    // Parse each line into a LogParsing object (requires specific format assumptions)
-                    // Example:
-                    // level: WARN, timestamp: 2024-12-18, message: Some warning message
-
+                    // Parse each line into a LogParsing object
+                    // This assumes a specific format
                     if (line.Contains("level"))
                     {
                         var parts = line.Split(',');
-                        result.Add(new LogParsing
+                        var log = new LogParsing
                         {
                             level = parts[0].Split(':')[1].Trim(),
                             timestamp = DateTime.Parse(parts[1].Split(':')[1].Trim()),
                             message = parts[2].Split(':')[1].Trim()
-                        });
+                        };
+                        result.Add(log);
                     }
                 }
+
+                // Store the logs into the database
+                using (var context = new AppDbContext(new DbContextOptions<AppDbContext>()))
+                {
+                    context.Entries.AddRange(result);
+                    context.SaveChanges();
+                }
+
                 return result;
             }
             catch (Exception ex)
@@ -129,30 +166,28 @@ namespace LogScanner
             }
         }
 
-        public void HorUnge()
+        public void FileIdentification()
         {
-                        string[] files = Directory.GetFiles(FindFolder("C://Users/", "LogData"));  // Get all files in the directory
-            //string filepath = FindFolder("C://Users/", "LogData"); Test
+            string[] files = Directory.GetFiles(FindFolder("C://Users/", "LogData"));  // Get all files in the directory
 
             foreach (string file in files)
             {
                 string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file);    // Extract the file name without extension
-
                 string fileExtension = Path.GetExtension(file).ToLower();     // Determine the file type based on the extension
+
                 switch (fileExtension)
                 {
                     case ".csv":
                         Console.WriteLine($"File: {file} - Detected as CSV");
-                        CsvReading(file);                                      // Call a method to handle CSV files
+                        CsvReading(file);  // Call CSV reading method
                         break;
                     case ".json":
                         Console.WriteLine($"File: {file} - Detected as JSON");
-                        LoadFromJson(file);               // Call a method to handle JSON files
-                        //OverWatch(filepath); Test!!!!
+                        LoadFromJson(file);  // Call JSON reading method
                         break;
                     case ".txt":
                         Console.WriteLine($"File: {file} - Detected as TXT");
-                        TxtReading(file);                                       // Call a method to handle TXT files
+                        TxtReading(file);  // Call TXT reading method
                         break;
                     default:
                         Console.WriteLine($"File: {file} - Unknown or unsupported file type");
@@ -193,6 +228,8 @@ namespace LogScanner
         }
 
         private readonly Dictionary<string, long> _fileLineTracker = new Dictionary<string, long>();
+
+
         public void OverWatch(string filePath)
         {
             const int maxRetries = 5; // Maximum number of retries
