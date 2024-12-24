@@ -98,9 +98,10 @@ namespace LogScanner
             {
                 var config = new CsvConfiguration(CultureInfo.InvariantCulture)
                 {
-                    HeaderValidated = null,  // Ignore missing headers
-                    MissingFieldFound = null // Ignore missing fields
+                    HeaderValidated = null,
+                    MissingFieldFound = null
                 };
+
                 using (var reader = new StreamReader(file))
                 using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
                 {
@@ -108,19 +109,20 @@ namespace LogScanner
                     Console.WriteLine(file);
                     Console.ResetColor();
 
-                    // Read the records from the CSV file
                     var records = csv.GetRecords<LogParsing>().ToList();
 
-                    // Display the count of records in the file
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"Successfully loaded {records.Count} entries from CSV file into the database.");
-                    Console.ResetColor();
-
-                    // Store to the database
                     using (var context = new AppDbContext())
                     {
-                        context.Entries.AddRange(records);
+                        foreach (var record in records)
+                        {
+                            // Use EF Core's Upsert functionality (if available)
+                            context.Entries.Update(record);
+                        }
                         context.SaveChanges();
+
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine($"Successfully loaded {records.Count} entries from CSV file into the database.");
+                        Console.ResetColor();
                     }
 
                     return records;
@@ -128,7 +130,7 @@ namespace LogScanner
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to parse .CSV file: {file} ERROR {ex.Message}");
+                Console.WriteLine($"Failed to parse .CSV file: {file}. Error: {ex.Message}");
                 return new List<LogParsing>();
             }
         }
@@ -146,33 +148,88 @@ namespace LogScanner
 
                 foreach (var line in lines)
                 {
-                    // Parse each line into a LogParsing object
-                    // This assumes a specific format
-                    if (line.Contains("level"))
+                    // Ensure the line has the correct format before attempting to parse it
+                    if (line.Contains("]"))
                     {
-                        var parts = line.Split(',');
-                        var log = new LogParsing
+                        try
                         {
-                            level = parts[0].Split(':')[1].Trim(),
-                            timestamp = DateTime.Parse(parts[1].Split(':')[1].Trim()),
-                            message = parts[2].Split(':')[1].Trim()
-                        };
-                        result.Add(log);
+                            var timestampEndIndex = line.IndexOf("]") + 1;
+                            var timestampString = line.Substring(1, timestampEndIndex - 2);
+                            var levelAndMessage = line.Substring(timestampEndIndex).Trim();
+
+                            var levelEndIndex = levelAndMessage.IndexOf(":");
+                            if (levelEndIndex > 0)
+                            {
+                                var level = levelAndMessage.Substring(0, levelEndIndex).Trim();
+                                var message = levelAndMessage.Substring(levelEndIndex + 1).Trim();
+
+                                var log = new LogParsing
+                                {
+                                    level = level,
+                                    timestamp = DateTime.Parse(timestampString),
+                                    message = message
+                                };
+
+                                result.Add(log);
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Skipping malformed line: {line}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error parsing line: {line}. Error: {ex.Message}");
+                        }
                     }
                 }
 
-                // Store the logs into the database
-                using (var context = new AppDbContext())
+                // Debugging: Output the result list size and content before saving
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"Successfully processed {result.Count} entries from TXT file.");
+                Console.ResetColor();
+
+                if (result.Count == 0)
                 {
-                    context.Entries.AddRange(result);
-                    context.SaveChanges();
+                    Console.WriteLine("No valid entries were parsed from the TXT file.");
+                }
+
+                // Store the logs into the database
+                if (result.Count > 0)
+                {
+                    using (var context = new AppDbContext())
+                    {
+                        try
+                        {
+                            Console.WriteLine($"Attempting to add {result.Count} entries to the database...");
+                            context.Entries.AddRange(result);
+
+                            // Debugging: Output the entity count before saving
+                            Console.WriteLine("Entries to be saved: ");
+                            foreach (var log in result)
+                            {
+                                Console.WriteLine($"{log.timestamp} | {log.level} | {log.message}");
+                            }
+
+                            context.SaveChanges();
+                            Console.WriteLine("Successfully saved entries to the database.");
+                        }
+                        catch (Exception dbEx)
+                        {
+                            Console.WriteLine($"Failed to save entries to the database. Error: {dbEx.Message}");
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No valid entries were found to be saved.");
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to parse .TXT file: {file} ERROR {ex.Message}");
+                Console.WriteLine($"Failed to parse .TXT file: {file}. Error: {ex.Message}");
                 return new List<LogParsing>();
             }
         }
